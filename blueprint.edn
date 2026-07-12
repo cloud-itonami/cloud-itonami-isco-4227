@@ -1,0 +1,11 @@
+[{:itonami.blueprint/id "cloud-itonami-isco-4227"
+  :itonami.blueprint/name "Community Survey Practice"
+  :itonami.blueprint/isco-08 "4227"
+  :itonami.blueprint/domain :research/survey-interviewing
+  :itonami.blueprint/license "AGPL-3.0-or-later"
+  :itonami.blueprint/social-impact [:evidence-based-policy :privacy-respecting-research :local-jobs]
+  :itonami.blueprint/governor :survey-interviewing-governor
+  :itonami.blueprint/robotics true
+  :itonami.blueprint/required-technologies [:robotics :identity :forms :dmn :bpmn :audit-ledger]
+  :itonami.blueprint/status :public-oss
+  :db/id -1}]
