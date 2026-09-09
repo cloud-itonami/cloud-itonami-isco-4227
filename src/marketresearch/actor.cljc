@@ -14,6 +14,12 @@
                                              +-> :hold               (:hard? true)
   ```
 
+  The phase names, the entry phase, the terminal phases and the
+  `:decide` routing all come from `marketresearch.phase` rather than
+  being spelled again here — the diagram above and the compiled graph
+  were previously two copies of one fact, and `phase-test` now asserts
+  the graph's node set equals the declaration in both directions.
+
   The unconditional invariant: the MarketResearchInterviewersAdvisor can never
   directly commit a record the MarketResearchInterviewersGovernor refuses —
   every commit-record! call is gated behind `:decide`."
@@ -21,6 +27,7 @@
             [langgraph.checkpoint :as cp]
             [marketresearch.advisor :as advisor]
             [marketresearch.governor :as governor]
+            [marketresearch.phase :as phase]
             [marketresearch.store :as store]))
 
 (defn build-graph
@@ -72,17 +79,18 @@
                    (fn [{:keys [verdict]}]
                      (store/append-ledger! store {:disposition :hold :verdict verdict})
                      {:audit [{:node :hold :verdict verdict}]}))
-      (g/set-entry-point :intake)
+      (g/set-entry-point phase/entry-phase)
       (g/add-edge :intake :advise)
       (g/add-edge :advise :govern)
       (g/add-edge :govern :decide)
       (g/add-conditional-edges
        :decide
+       ;; The disposition -> phase mapping is the declaration's, so a
+       ;; disposition the phase namespace does not route cannot be
+       ;; invented here. Unknown dispositions fall to :hold — the safe
+       ;; direction, since :hold never writes a record.
        (fn [{:keys [disposition]}]
-         (case disposition
-           :commit :commit
-           :request-approval :request-approval
-           :hold)))
+         (get phase/disposition->phase disposition :hold)))
       (g/add-edge :request-approval :commit)
       (g/set-finish-point :commit)
       (g/set-finish-point :hold)

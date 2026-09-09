@@ -18,14 +18,23 @@
              required consent is not data, it's a violation).
     record — a committed operating record (approved response) —
              written ONLY via commit-record!.
-    ledger — append-only audit trail, commit or hold."
-  )
+    ledger — append-only audit trail, commit or hold. Entries are
+             CHAINED by `marketresearch.ledger` (gap-free :seq, :prev
+             link, :hash over the pair and the fact), so a trail that
+             was reordered, truncated from the middle or edited in
+             place is detectable by `ledger-integrity` rather than
+             invisible. `ledger` returns the recorded FACTS, which is
+             what every existing reader wants; `ledger-entries` exposes
+             the chain for auditing it."
+  (:require [marketresearch.ledger :as ledger]))
 
 (defprotocol Store
   (client [s client-id])
   (study [s study-id])
   (records-of [s client-id])
-  (ledger [s])
+  (ledger [s] "The recorded facts, in order.")
+  (ledger-entries [s] "The chained entries, for integrity checking.")
+  (ledger-integrity [s] "`marketresearch.ledger/verify` over the chain.")
   (register-client! [s client])
   (register-study! [s st])
   (commit-record! [s record])
@@ -36,7 +45,9 @@
   (client [_ client-id] (get-in @a [:clients client-id]))
   (study [_ study-id] (get-in @a [:studies study-id]))
   (records-of [_ client-id] (filter #(= client-id (:client-id %)) (:records @a)))
-  (ledger [_] (:ledger @a))
+  (ledger [_] (ledger/facts (:ledger @a)))
+  (ledger-entries [_] (:ledger @a))
+  (ledger-integrity [_] (ledger/verify (:ledger @a)))
   (register-client! [s client]
     (swap! a assoc-in [:clients (:client-id client)] client) s)
   (register-study! [s st]
@@ -44,7 +55,7 @@
   (commit-record! [s record]
     (swap! a update :records (fnil conj []) record) s)
   (append-ledger! [s fact]
-    (swap! a update :ledger (fnil conj []) fact) s))
+    (swap! a update :ledger (fnil ledger/append []) fact) s))
 
 (defn mem-store
   ([] (mem-store {}))
