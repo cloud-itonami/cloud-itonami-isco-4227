@@ -11,6 +11,22 @@
   consent is not data — it's a violation.
 
   HARD invariants (:hard? true, ALWAYS :hold, never overridable):
+    0. registered operation — :op must be a key of
+                           `marketresearch.operation/registry`, and the
+                           proposal must carry that op's declared
+                           fields with their declared types. Added
+                           2026-09-10 after measuring that it was
+                           missing: every rule below is guarded on the
+                           op being :approve-response, so an op nobody
+                           defined skipped all of them and reached
+                           :ok? true — `{:op :exfiltrate-respondent-pii
+                           :effect :propose :confidence 0.99}` COMMITTED
+                           a record. The field types close the same hole
+                           one layer down: rule 5 only fired when
+                           segment-count-after was a number, so the
+                           string \"9999\" was not over quota, it was
+                           unchecked — and unchecked returned :ok? true,
+                           the same value as checked-and-fine.
     1. client provenance — the organization must be registered.
     2. no-actuation      — proposal :effect must be :propose.
     3. study basis          — a response approval must cite a
@@ -29,15 +45,29 @@
   ESCALATION invariants (:escalate? true, human sign-off):
     7. :op :approve-quota-reopening (reopening a closed segment quota).
     8. low confidence (< `confidence-floor`)."
-  (:require [marketresearch.store :as store]))
+  (:require [marketresearch.operation :as operation]
+            [marketresearch.store :as store]))
 
 (def confidence-floor 0.6)
 
 (defn- hard-violations [{:keys [request proposal]} client-record st]
   (let [{:keys [op segment segment-count-after consent-obtained]} proposal
         approve? (= :approve-response op)
-        quotas (:segment-quotas st)]
+        quotas (:segment-quotas st)
+        ;; Fails closed by construction: `operation/problems` returns a
+        ;; problem for an unregistered op rather than an empty list, so
+        ;; "no operation matched" cannot arrive here as "nothing wrong".
+        op-problems (operation/problems proposal)
+        unregistered? (some #(= :unregistered-operation (:kind %)) op-problems)]
     (cond-> []
+      unregistered?
+      (conj {:rule :unregistered-operation
+             :detail (operation/explain op-problems)})
+
+      (and (not unregistered?) (seq op-problems))
+      (conj {:rule :malformed-operation
+             :detail (operation/explain op-problems)})
+
       (nil? client-record)
       (conj {:rule :no-client :detail "未登録 client"})
 

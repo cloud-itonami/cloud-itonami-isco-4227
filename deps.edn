@@ -9,8 +9,18 @@
   ;; test verdict survive unreported (cloud-itonami-isic-561/563/920).
   :lint {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2024.11.14"}}
          :main-opts    ["-m" "clj-kondo.main"
-                        "--lint" "src" "test"
+                        ;; tools/ included from 2026-09-10: the governance gate
+                        ;; lives there, and an unlinted gate is exactly the
+                        ;; unlinted code this alias was added for.
+                        "--lint" "src" "test" "tools"
                         "--fail-level" "error"]}
+  ;; The governance gate: demonstrate that the governor REFUSES, and for
+  ;; the reason it names. Kept on this repo's existing clojure CLI rather
+  ;; than nbb/kbb because it loads the langgraph-backed graph, which is
+  ;; how the actor actually runs; a gate that exercises a different host
+  ;; than production is measuring something else.
+  :gate {:extra-paths ["tools"]
+         :main-opts    ["-m" "governance-gate"]}
   :test {:extra-paths ["test"]
          :extra-deps {io.github.cognitect-labs/test-runner
                       {:git/tag "v0.5.1" :git/sha "dfb30dd6605cb6c0efc275e1df1736f6e90d4d73"}}

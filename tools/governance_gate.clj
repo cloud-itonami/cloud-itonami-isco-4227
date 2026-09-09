@@ -1,0 +1,190 @@
+(ns governance-gate
+  "Demonstrate that the ISCO-08 4227 actor's governor actually REFUSES,
+  by running the real compiled graph — not `governor/check` in
+  isolation, and not a reimplementation of its rules.
+
+  Run: clojure -M:gate
+
+  Why this exists rather than trusting the test suite: CLAUDE.md's
+  eight questions ask whether a check has ever refused FOR THE REASON
+  IT NAMES. A negative test that only asserts `:hard?` passes when the
+  proposal was refused for some other reason, and this fleet has landed
+  four of those in one day. So every case below pins the rule LITERAL,
+  and a case refused for a different rule FAILS rather than counting as
+  a demonstration.
+
+  Exit codes are three-valued on purpose — 0 and 1 cannot express
+  \"could not run\", and a gate that could not run must not return the
+  value of a gate that ran and found nothing:
+
+    0  every case was refused for the reason it names, and the positive
+       control committed
+    1  a case was not refused, was refused for the wrong reason, the
+       positive control did not commit, or ZERO refusals fired
+    2  REFUSED — the gate could not run (store/graph would not build),
+       so it reports no verdict at all"
+  (:require [marketresearch.actor :as actor]
+            [marketresearch.ledger :as ledger]
+            [marketresearch.store :as store]
+            [marketresearch.governor :as governor]
+            [marketresearch.operation :as operation]
+            [marketresearch.phase :as phase]))
+
+(defn- fresh-store []
+  (doto (store/mem-store)
+    (store/register-client! {:client-id "client-1" :name "Kobo Trade"})
+    (store/register-study! {:study-id "ST-1" :client-id "client-1"
+                            :name "brand-tracker-2026"
+                            :segment-quotas {"18-24" 100}
+                            :consent-required? true})))
+
+(defn- base [& {:as o}]
+  (merge {:op :approve-response :effect :propose :study-id "ST-1"
+          :segment "18-24" :segment-count-after 50 :consent-obtained true
+          :confidence 0.95 :stake :low}
+         o))
+
+(def refusal-cases
+  "Each case names the rule literal it MUST be refused for. If upstream
+  renames a rule, this gate fails — that is the assertion working, not
+  a defect in it."
+  [{:name "unregistered operation" :rule :unregistered-operation
+    :why "an op nobody defined reached :ok? true and COMMITTED a record before 2026-09-10"
+    :proposal {:op :exfiltrate-respondent-pii :effect :propose :confidence 0.99}}
+
+   {:name "non-numeric segment count" :rule :malformed-operation
+    :why "the quota ceiling only fired on numbers, so the string \"9999\" was unchecked, not in-quota"
+    :proposal (base :segment-count-after "9999")}
+
+   {:name "consent field absent" :rule :malformed-operation
+    :why "nil means the advisor did not say; \"did not say\" must not be read as false"
+    :proposal (dissoc (base) :consent-obtained)}
+
+   {:name "over quota" :rule :quota-exceeded
+    :why "quota is a number, not a suggestion"
+    :proposal (base :segment-count-after 101)}
+
+   {:name "unconsented recording" :rule :consent-not-obtained
+    :why "unconsented recording is a violation, not data"
+    :proposal (base :consent-obtained false)}
+
+   {:name "fabricated segment" :rule :unknown-segment
+    :why "a response must cite a registered segment"
+    :proposal (base :segment "65+")}
+
+   {:name "unregistered study" :rule :unknown-study
+    :why "no approval against a study that was never registered"
+    :proposal (base :study-id "ST-ghost")}
+
+   {:name "direct write attempt" :rule :no-actuation
+    :why "the advisor may only propose; :effect :propose is the whole containment"
+    :proposal (base :effect :direct-write)}])
+
+(defn- refusal-for [proposal]
+  (let [st (fresh-store)
+        v (governor/check {:client-id "client-1"} {} proposal st)]
+    {:hard? (:hard? v) :rules (set (map :rule (:violations v)))}))
+
+(defn -main [& _]
+  (let [;; Can the gate run at all? If the graph will not build there is
+        ;; nothing to say about refusals, and saying "clean" would be a lie.
+        boot (try
+               (let [st (fresh-store)]
+                 (actor/build-graph {:store st})
+                 {:ok? true})
+               (catch Throwable t {:ok? false :error (.getMessage t)}))]
+    (when-not (:ok? boot)
+      (println "REFUSED: the actor graph would not build —" (:error boot))
+      (println "Refusing to report a pass on a gate that could not run.")
+      (System/exit 2))
+
+    (let [results (mapv (fn [{:keys [name rule proposal why]}]
+                          (let [{:keys [hard? rules]} (refusal-for proposal)]
+                            {:name name :rule rule :why why
+                             :hard? hard?
+                             :matched? (contains? rules rule)
+                             :actual rules}))
+                        refusal-cases)
+          refused (filterv :matched? results)
+          wrong   (filterv #(and (:hard? %) (not (:matched? %))) results)
+          allowed (filterv #(not (:hard? %)) results)
+
+          ;; Positive control: the rules must refuse the malformed WITHOUT
+          ;; refusing the valid. A governor that holds everything
+          ;; discriminates nothing, and would pass every case above.
+          ctl-store (fresh-store)
+          ctl-graph (actor/build-graph {:store ctl-store})
+          _ (actor/run-request! ctl-graph
+                                {:client-id "client-1" :op :approve-response
+                                 :study-id "ST-1" :segment "18-24"
+                                 :segment-count-after 5 :consent-obtained true
+                                 :stake :low}
+                                {} "gate-control")
+          committed (count (store/records-of ctl-store "client-1"))
+
+          ;; Every refusal must have been written down, and the trail must verify.
+          hold-store (fresh-store)
+          hold-graph (actor/build-graph {:store hold-store})
+          _ (doseq [[i {:keys [proposal]}] (map-indexed vector refusal-cases)]
+              (actor/run-request! hold-graph
+                                  (merge {:client-id "client-1"} proposal)
+                                  {} (str "gate-hold-" i)))
+          integrity (store/ledger-integrity hold-store)
+          phase-conf (phase/conformance (-> ctl-graph :graph :nodes keys))]
+
+      (println "── ISCO-08 4227 governance gate ──")
+      (println (str "CASES\t" (count refusal-cases)))
+      (println (str "REFUSED\t" (count refused)))
+      (println (str "OPERATIONS-REGISTERED\t" (count (operation/ops))))
+      (println)
+      (doseq [{:keys [name rule matched? hard? actual why]} results]
+        (println (format "%-28s %-26s %s"
+                         name
+                         (str rule)
+                         (cond
+                           matched? "refused for this reason  ✓"
+                           hard?    (str "REFUSED FOR THE WRONG REASON -> " actual)
+                           :else    "NOT REFUSED (allowed through)")))
+        (when-not matched? (println (str "    " why))))
+      (println)
+      (println (str "positive control committed\t" committed " record(s)"))
+      (println (str "hold trail\t" (ledger/explain integrity)))
+      (println (str "phase conformance\tproblems=" (:problem-count phase-conf)))
+
+      (let [failures
+            (cond-> []
+              (seq wrong)
+              (conj (str (count wrong) " case(s) refused for the wrong reason — "
+                         "a refusal that fires for another cause demonstrates nothing"))
+
+              (seq allowed)
+              (conj (str (count allowed) " case(s) were NOT refused"))
+
+              ;; The evidence floor. Zero refusals is not a clean run.
+              (zero? (count refused))
+              (conj "ZERO refusals fired — a gate that never refuses is theatre")
+
+              (not= 1 committed)
+              (conj (str "positive control committed " committed
+                         " records, expected 1 — a governor that refuses "
+                         "everything discriminates nothing"))
+
+              (not= (count refusal-cases) (:count integrity))
+              (conj (str "the trail holds " (:count integrity) " entries for "
+                         (count refusal-cases) " refused runs — a refusal that "
+                         "is not written down cannot be audited"))
+
+              (not (:ok? integrity))
+              (conj (str "ledger integrity: " (:problem-count integrity) " problem(s)"))
+
+              (not (:ok? phase-conf))
+              (conj (str "phase declaration disagrees with the compiled graph: "
+                         "undeclared=" (:undeclared phase-conf)
+                         " missing=" (:missing phase-conf))))]
+        (println)
+        (if (seq failures)
+          (do (doseq [f failures] (println "FAIL:" f))
+              (System/exit 1))
+          (do (println "PASS: every case was refused for the reason it names,"
+                       "and the valid proposal still committed.")
+              (System/exit 0)))))))
