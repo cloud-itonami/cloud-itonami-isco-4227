@@ -3,7 +3,7 @@
   by running the real compiled graph — not `governor/check` in
   isolation, and not a reimplementation of its rules.
 
-  Run: clojure -M:gate
+  Run: kbb -M:gate
 
   Why this exists rather than trusting the test suite: CLAUDE.md's
   eight questions ask whether a check has ever refused FOR THE REASON

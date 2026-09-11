@@ -18,12 +18,12 @@ declared run phases the graph is built from), `sim` (dry-run against
 live data, writes nothing).
 
 ```bash
-clojure -M:test    # 51 tests / 124 assertions
-clojure -M:gate    # demonstrate that the governor REFUSES, and why
-clojure -M:lint    # clj-kondo over src, test, tools
+kbb -M:test    # 51 tests / 124 assertions
+kbb -M:gate    # demonstrate that the governor REFUSES, and why
+kbb -M:lint    # clj-kondo over src, test, tools
 ```
 
-`clojure -M:gate` runs eight refusal cases through the real
+`kbb -M:gate` runs eight refusal cases through the real
 compiled graph and **pins the rule literal each must be refused for** —
 a case refused for a *different* reason fails rather than counting as a
 demonstration. It exits `0` on a clean run, `1` when a case is not
