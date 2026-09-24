@@ -1,5 +1,5 @@
 (ns marketresearch.phase-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [marketresearch.phase :as phase]
             [marketresearch.actor :as actor]
             [marketresearch.store :as store]))

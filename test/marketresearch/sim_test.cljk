@@ -1,5 +1,5 @@
 (ns marketresearch.sim-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [marketresearch.sim :as sim]
             [marketresearch.store :as store]
             [marketresearch.actor :as actor]))
