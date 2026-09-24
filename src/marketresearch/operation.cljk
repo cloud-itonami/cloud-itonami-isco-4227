@@ -33,7 +33,7 @@
   `nil` means the advisor did not say, and \"did not say\" must not be
   readable as `false` — the two have to stay distinguishable at the
   boundary, or a missing field silently becomes a negative answer."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 (def registry
   "op -> {:doc str :required {field type-tag}}. Closed: an op that is

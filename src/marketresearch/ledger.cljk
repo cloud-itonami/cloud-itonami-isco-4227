@@ -26,7 +26,7 @@
 
   `verify` returns a COUNT of problems, not a boolean: a boolean cannot
   tell one edited entry from a wholly corrupt chain."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 (def genesis-prev
   "The `:prev` of the first entry. A real value rather than nil so a
