@@ -1,5 +1,5 @@
 (ns marketresearch.ledger-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [marketresearch.ledger :as ledger]
             [marketresearch.actor :as actor]
             [marketresearch.store :as store]))
