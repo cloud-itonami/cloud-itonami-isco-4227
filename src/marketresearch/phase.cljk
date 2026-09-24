@@ -19,7 +19,7 @@
       :intake -> :advise -> :govern -> :decide -+-> :commit           (:ok? true)
                                                 +-> :request-approval (:escalate? true, interrupt-before)
                                                 +-> :hold             (:hard? true)"
-  (:require [clojure.set :as set]))
+  (:require [kotoba.lang.coll :as set]))
 
 (def order
   "Every phase of a run, in the order the graph builds them."
