@@ -1,12 +1,12 @@
 (ns marketresearch.phase
   "The declared phases of one ISCO-08 4227 actor run, and which
   transitions between them are legal (itonami actor pattern,
-  ADR-2607011000 / CLAUDE.md Actors section).
+  ADR-2607011000 / AGENTS.md Actors section).
 
   `marketresearch.actor` drew this as an ASCII diagram in its
   docstring, which means the diagram and the compiled graph were two
   copies of one fact with nothing holding them together. A phase added
-  to the graph but not to the diagram is exactly the shape CLAUDE.md
+  to the graph but not to the diagram is exactly the shape AGENTS.md
   names as `live に見える dead code` — reachable, undocumented, and
   silent about it.
 

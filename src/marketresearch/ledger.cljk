@@ -1,7 +1,7 @@
 (ns marketresearch.ledger
   "The append-only audit trail for the ISCO-08 4227 community survey &
   market research interviewers actor (itonami actor pattern,
-  ADR-2607011000 / CLAUDE.md Actors section).
+  ADR-2607011000 / AGENTS.md Actors section).
 
   Before this namespace the store kept the trail as a bare vector of
   whatever map the graph handed it, so nothing distinguished \"three
