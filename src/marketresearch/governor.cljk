@@ -2,7 +2,7 @@
   "MarketResearchInterviewersGovernor — the independent safety/
   traceability layer for the ISCO-08 4227 community survey & market
   research interviewers actor (itonami actor pattern,
-  ADR-2607011000 / CLAUDE.md Actors section). Modeled on
+  ADR-2607011000 / AGENTS.md Actors section). Modeled on
   cloud-itonami-isco-4311's bookkeeping.governor. Fieldwork twist: a
   response may only be recorded against a REGISTERED segment (no
   fabricated segment), the running segment count must not exceed the

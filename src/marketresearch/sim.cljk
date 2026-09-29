@@ -1,7 +1,7 @@
 (ns marketresearch.sim
   "Dry-run for the ISCO-08 4227 community survey & market research
   interviewers actor (itonami actor pattern, ADR-2607011000 /
-  CLAUDE.md Actors section).
+  AGENTS.md Actors section).
 
   Fieldwork is expensive and quotas are the thing it runs into. An
   interviewer needs to know, BEFORE going out, which segments still

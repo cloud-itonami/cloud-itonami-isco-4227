@@ -1,7 +1,7 @@
 (ns marketresearch.operation
   "The REGISTRY of operations the ISCO-08 4227 community survey & market
   research interviewers actor is allowed to perform, and the shape each
-  one must have (itonami actor pattern, ADR-2607011000 / CLAUDE.md
+  one must have (itonami actor pattern, ADR-2607011000 / AGENTS.md
   Actors section).
 
   Why this namespace exists — measured, not argued. Before it, every
